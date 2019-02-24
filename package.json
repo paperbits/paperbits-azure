@@ -1,0 +1,23 @@
+{
+    "name": "@paperbits/azure",
+    "version": "0.1.72",
+    "description": "Microsoft Azure client library for Paperbits components.",
+    "author": "Paperbits",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/paperbits/paperbits-azure.git"
+    },
+    "keywords": [
+        "paperbits",
+        "azure"
+    ],
+    "bugs": {
+        "url": "https://github.com/paperbits/paperbits-azure/issues"
+    },
+    "dependencies": {
+        "@azure/storage-blob": "^10.3.0",
+        "@paperbits/common": "^0.1.65",
+        "mime-types": "^2.1.22"
+    }
+}
