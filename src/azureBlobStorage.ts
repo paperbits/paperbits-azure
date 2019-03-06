@@ -3,7 +3,22 @@ import { XmlHttpRequestClient } from "@paperbits/common/http";
 import { ISettingsProvider } from "@paperbits/common/configuration";
 import { IBlobStorage } from "@paperbits/common/persistence";
 import { ProgressPromise } from "@paperbits/common";
-import { Aborter, BlobURL, BlockBlobURL, ContainerURL, ServiceURL, StorageURL, AnonymousCredential, SharedKeyCredential, Credential } from "@azure/storage-blob";
+import {
+    AccountSASPermissions,
+    AccountSASResourceTypes,
+    AccountSASServices,
+    Aborter,
+    BlobURL,
+    BlockBlobURL,
+    ContainerURL,
+    ServiceURL,
+    StorageURL,
+    AnonymousCredential,
+    SharedKeyCredential,
+    SASProtocol,
+    Credential,
+    generateAccountSASQueryParameters
+} from "@azure/storage-blob";
 
 
 /**
@@ -11,6 +26,7 @@ import { Aborter, BlobURL, BlockBlobURL, ContainerURL, ServiceURL, StorageURL, A
  */
 export class AzureBlobStorage implements IBlobStorage {
     private initializePromise: Promise<ContainerURL>;
+    private credential: Credential;
 
     /**
      * Creates Azure blob storage client.
@@ -45,6 +61,8 @@ export class AzureBlobStorage implements IBlobStorage {
             storageUrl = await this.settingsProvider.getSetting<string>("blobStorageUrl");
             credential = new AnonymousCredential();
         }
+
+        this.credential = credential;
 
         const pipeline = StorageURL.newPipeline(credential);
         const serviceURL: ServiceURL = new ServiceURL(storageUrl, pipeline);
@@ -121,8 +139,31 @@ export class AzureBlobStorage implements IBlobStorage {
         const containerUrl = await this.initialize();
 
         try {
-            const blobURL = BlobURL.fromContainerURL(containerUrl, blobKey);
-            return blobURL.url;
+            if (generateAccountSASQueryParameters) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - 5); // Skip clock skew with server
+
+                const tmr = new Date();
+                tmr.setDate(tmr.getDate() + 1);
+
+                const signatureValues = {
+                    expiryTime: tmr,
+                    permissions: AccountSASPermissions.parse("r").toString(),
+                    protocol: SASProtocol.HTTPSandHTTP,
+                    resourceTypes: AccountSASResourceTypes.parse("sco").toString(),
+                    services: AccountSASServices.parse("btqf").toString(),
+                    startTime: now,
+                    version: "2016-05-31"
+                };
+
+                const sharedAccessSignature = generateAccountSASQueryParameters(signatureValues, this.credential as SharedKeyCredential).toString();
+                const blobURL = BlobURL.fromContainerURL(containerUrl, blobKey);
+                return `${blobURL.url}?${sharedAccessSignature}`;
+            }
+            else {
+                const blobURL = BlobURL.fromContainerURL(containerUrl, blobKey);
+                return `${blobURL.url}`;
+            }
         }
         catch (error) {
             if (error && error.statusCode && error.statusCode === 404) {
