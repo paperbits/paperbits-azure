@@ -2,7 +2,6 @@ import * as mime from "mime-types";
 import { XmlHttpRequestClient } from "@paperbits/common/http";
 import { ISettingsProvider } from "@paperbits/common/configuration";
 import { IBlobStorage } from "@paperbits/common/persistence";
-import { ProgressPromise } from "@paperbits/common";
 import {
     AccountSASPermissions,
     AccountSASResourceTypes,
@@ -85,7 +84,7 @@ export class AzureBlobStorage implements IBlobStorage {
      * @param content
      * @param contentType
      */
-    public async uploadBlob(blobKey: string, content: Uint8Array, contentType?: string): ProgressPromise<void> {
+    public async uploadBlob(blobKey: string, content: Uint8Array, contentType?: string): Promise<void> {
         const containerUrl = await this.initialize();
 
         blobKey = blobKey.replace(/\\/g, "\/").replace("//", "/");
