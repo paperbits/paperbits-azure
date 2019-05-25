@@ -32,10 +32,7 @@ export class AzureBlobStorage implements IBlobStorage {
      * @param storageURL Storage URL containing SAS key.
      * @param storageContainer Name of storage container.
      */
-    constructor(
-        private readonly settingsProvider: ISettingsProvider
-        // private readonly httpClient: HttpClient
-    ) { }
+    constructor(private readonly settingsProvider: ISettingsProvider) { }
 
     private async getContainerUrl(): Promise<ContainerURL> {
         const storageContainer = await this.settingsProvider.getSetting<string>("blobStorageContainer");
@@ -65,7 +62,7 @@ export class AzureBlobStorage implements IBlobStorage {
 
         const pipeline = StorageURL.newPipeline(credential);
         const serviceURL: ServiceURL = new ServiceURL(storageUrl, pipeline);
-        const containerURL = ContainerURL.fromServiceURL(serviceURL, storageContainer);
+        const containerURL = ContainerURL.fromServiceURL(serviceURL, storageContainer || "");
 
         return containerURL;
     }
