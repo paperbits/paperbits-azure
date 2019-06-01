@@ -46,7 +46,7 @@ export class AzureBlobStorage implements IBlobStorage {
             const nameMatch = nameRegex.exec(connectionString);
             const accountName = nameMatch[1];
 
-            const keyRegex = /AccountKey=([^;]*);/gm;
+            const keyRegex = /AccountKey=([^;]*==)/gm;
             const keyMatch = keyRegex.exec(connectionString);
             const accountKey = keyMatch[1];
 
