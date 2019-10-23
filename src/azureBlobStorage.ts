@@ -197,4 +197,18 @@ export class AzureBlobStorage implements IBlobStorage {
         const listBlobsResponse = await containerUrl.listBlobFlatSegment(Aborter.none, undefined);
         return listBlobsResponse.segment.blobItems.map(x => x.name);
     }
+
+    public async deleteContainer(): Promise<void> {
+        const containerUrl = await this.initialize();
+
+        try {
+            await containerUrl.delete(Aborter.none);
+        }
+        catch (error) {
+            if (error && error.statusCode && error.statusCode === 404) {
+                return; // container was already deleted
+            }
+            throw error;
+        }
+    }
 }
