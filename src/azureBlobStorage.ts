@@ -50,7 +50,10 @@ export class AzureBlobStorage implements IBlobStorage {
             const keyMatch = keyRegex.exec(connectionString);
             const accountKey = keyMatch[1];
 
-            storageUrl = `https://${accountName}.blob.core.windows.net`;
+            const endPoint = connectionString.split(";EndpointSuffix=");
+            const endPointSuffix = endPoint.length > 1 ? endPoint[1].split(";")[0] : "core.windows.net";
+
+            storageUrl = `https://${accountName}.blob.${endPointSuffix}`;
             credential = new SharedKeyCredential(accountName, accountKey);
         }
         else {
