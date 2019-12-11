@@ -18,6 +18,7 @@
     "dependencies": {
         "@azure/storage-blob": "^10.3.0",
         "@paperbits/common": "0.1.185",
+        "applicationinsights-js": "^1.0.20",
         "mime-types": "^2.1.22"
     }
 }
