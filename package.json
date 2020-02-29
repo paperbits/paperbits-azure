@@ -1,6 +1,6 @@
 {
     "name": "@paperbits/azure",
-    "version": "0.1.228",
+    "version": "0.1.229",
     "description": "Microsoft Azure client library for Paperbits components.",
     "author": "Paperbits",
     "license": "MIT",
@@ -17,7 +17,7 @@
     },
     "dependencies": {
         "@azure/storage-blob": "^10.3.0",
-        "@paperbits/common": "0.1.228",
+        "@paperbits/common": "0.1.229",
         "applicationinsights-js": "^1.0.20",
         "mime-types": "^2.1.22"
     }
