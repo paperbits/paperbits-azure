@@ -201,6 +201,11 @@ export class AzureBlobStorage implements IBlobStorage {
         return listBlobsResponse.segment.blobItems.map(x => x.name);
     }
 
+    public async createContainer(): Promise<void> {
+        const containerUrl = await this.initialize();
+        await containerUrl.create(Aborter.none);
+    }
+
     public async deleteContainer(): Promise<void> {
         const containerUrl = await this.initialize();
 
