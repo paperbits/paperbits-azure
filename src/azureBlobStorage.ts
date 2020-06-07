@@ -123,7 +123,7 @@ export class AzureBlobStorage implements IBlobStorage {
         const blobUrl = await this.getDownloadUrl(blobKey);
         const response = await httpClient.send({ url: blobUrl });
 
-        if (response) {
+        if (response?.statusCode === 200) {
             return response.toByteArray();
         }
 
