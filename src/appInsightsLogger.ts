@@ -23,8 +23,8 @@ export class LogService implements Logger {
         AppInsights.trackEvent(eventName, properties);
     }
 
-    public async trackError(message: string, error: Error): Promise<void> {
-        AppInsights.trackException(error, null, { message: message });
+    public async trackError(error: Error, properties?: Bag<string>): Promise<void> {
+        AppInsights.trackException(error, properties?.handledAt, properties);
     }
 
     public async trackView(name: string, properties?: Bag<string>): Promise<void> {
