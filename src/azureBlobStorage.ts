@@ -114,7 +114,7 @@ export class AzureBlobStorage implements IBlobStorage {
             );
         }
         catch (error) {
-            throw new Error(`Unable to upload blob ${blobKey}. ${error}`);
+            throw new Error(`Unable to upload blob ${blobKey}. ${error.stack || error.message}`);
         }
     }
 
