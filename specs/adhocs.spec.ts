@@ -1,5 +1,5 @@
 import { describe, it } from "mocha";
-import { AzureBlobStorage } from "../src/azureBlobStorage";
+import { AzureBlobStorage } from "../src/persistence/azureBlobStorage";
 import { StaticSettingsProvider } from "./staticSettingsProvider";
 
 
