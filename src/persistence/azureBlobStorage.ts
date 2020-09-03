@@ -138,7 +138,7 @@ export class AzureBlobStorage implements IBlobStorage {
         const containerUrl = await this.initialize();
 
         try {
-            if (generateAccountSASQueryParameters) {
+            if (this.credential instanceof SharedKeyCredential) {
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - 5); // Skip clock skew with server
 
