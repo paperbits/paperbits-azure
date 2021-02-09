@@ -1,31 +1,25 @@
 import * as mime from "mime-types";
-import { XmlHttpRequestClient } from "@paperbits/common/http";
+import { ReadStream } from "fs";
 import { ISettingsProvider } from "@paperbits/common/configuration";
 import { IBlobStorage } from "@paperbits/common/persistence";
-import {
-    AccountSASPermissions,
-    AccountSASResourceTypes,
-    AccountSASServices,
-    Aborter,
-    BlobURL,
-    BlockBlobURL,
-    ContainerURL,
-    ServiceURL,
-    StorageURL,
+import { 
     AnonymousCredential,
-    SharedKeyCredential,
-    SASProtocol,
-    Credential,
-    generateAccountSASQueryParameters
+    BlobBatch, 
+    BlobBatchClient, 
+    BlobItem, 
+    BlobSASPermissions, 
+    BlobServiceClient, 
+    BlockBlobClient, 
+    ContainerClient
 } from "@azure/storage-blob";
-
 
 /**
  * Azure blob storage client.
  */
 export class AzureBlobStorage implements IBlobStorage {
-    private initializePromise: Promise<ContainerURL>;
-    private credential: Credential;
+    private initializePromise: Promise<void>;
+    private blobBatchClient: BlobBatchClient;
+    private containerClient: ContainerClient;
 
     /**
      * Creates Azure blob storage client.
@@ -34,48 +28,42 @@ export class AzureBlobStorage implements IBlobStorage {
      */
     constructor(private readonly settingsProvider: ISettingsProvider) { }
 
-    private async getContainerUrl(): Promise<ContainerURL> {
-        const storageContainer = await this.settingsProvider.getSetting<string>("blobStorageContainer");
+    private async initContainer(): Promise<void> {
         const connectionString = await this.settingsProvider.getSetting<string>("blobStorageConnectionString");
 
-        let storageUrl: string;
-        let credential: Credential;
-
         if (connectionString) {
-            const nameRegex = /AccountName=([^;]*);/gm;
-            const nameMatch = nameRegex.exec(connectionString);
-            const accountName = nameMatch[1];
-
-            const keyRegex = /AccountKey=([^;]*==)/gm;
-            const keyMatch = keyRegex.exec(connectionString);
-            const accountKey = keyMatch[1];
-
-            const endPoint = connectionString.split(";EndpointSuffix=");
-            const endPointSuffix = endPoint.length > 1 ? endPoint[1].split(";")[0] : "core.windows.net";
-
-            storageUrl = `https://${accountName}.blob.${endPointSuffix}`;
-            credential = new SharedKeyCredential(accountName, accountKey);
+            const storageContainer = await this.settingsProvider.getSetting<string>("blobStorageContainer");
+            const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+            this.containerClient = new ContainerClient(connectionString, storageContainer);
+            this.blobBatchClient = blobServiceClient.getBlobBatchClient();
+        } else {
+            const storageUrl = await this.settingsProvider.getSetting<string>("blobStorageUrl");
+            this.containerClient = new ContainerClient(storageUrl);
         }
-        else {
-            storageUrl = await this.settingsProvider.getSetting<string>("blobStorageUrl");
-            credential = new AnonymousCredential();
-        }
-
-        this.credential = credential;
-
-        const pipeline = StorageURL.newPipeline(credential);
-        const serviceURL: ServiceURL = new ServiceURL(storageUrl, pipeline);
-        const containerURL = ContainerURL.fromServiceURL(serviceURL, storageContainer || "");
-
-        return containerURL;
     }
 
-    private async initialize(): Promise<ContainerURL> {
+    private async initialize(): Promise<void> {
         if (!this.initializePromise) {
-            this.initializePromise = this.getContainerUrl();
+            this.initializePromise = this.initContainer();
         }
 
         return this.initializePromise;
+    }
+
+    /**
+     * Returns array of keys for all the blobs in container or with specified prefix.
+     * @param blobPrefix
+     */
+    public async listBlobs(blobPrefix: string = ""): Promise<string[]> {
+        await this.initialize();
+        const prefix = this.getCleanKey(blobPrefix);
+        const allBlobs = await this.listAllBlobItems(prefix);
+
+        if (allBlobs.length > 0) {
+            return allBlobs.map(blob => blob.name);
+        }
+
+        return [];
     }
 
     /**
@@ -85,31 +73,22 @@ export class AzureBlobStorage implements IBlobStorage {
      * @param contentType
      */
     public async uploadBlob(blobKey: string, content: Uint8Array, contentType?: string): Promise<void> {
-        const containerUrl = await this.initialize();
+        await this.initialize();
 
-        blobKey = blobKey.replace(/\\/g, "\/").replace("//", "/");
-
-        if (blobKey.startsWith("/")) {
-            blobKey = blobKey.substring(1);
-        }
-
-        const blobURL = BlobURL.fromContainerURL(containerUrl, blobKey);
-        const blockBlobURL = BlockBlobURL.fromBlobURL(blobURL);
+        blobKey = this.getCleanKey(blobKey);
 
         if (!contentType) {
             const fileName = blobKey.split("/").pop();
             contentType = mime.lookup(fileName) || "application/octet-stream";
         }
 
+        const blockBlobClient = this.containerClient.getBlockBlobClient(blobKey);
         try {
-            await blockBlobURL.upload(
-                Aborter.none,
+            await blockBlobClient.upload(
                 content,
                 content.byteLength,
                 {
-                    blobHTTPHeaders: {
-                        blobContentType: contentType
-                    }
+                    blobHTTPHeaders: { blobContentType: contentType }
                 }
             );
         }
@@ -118,16 +97,34 @@ export class AzureBlobStorage implements IBlobStorage {
         }
     }
 
+    /**
+     * Get blob from storage in Browser.
+     * @param blobKey
+     */
     public async downloadBlob(blobKey: string): Promise<Uint8Array> {
-        const httpClient = new XmlHttpRequestClient();
-        const blobUrl = await this.getDownloadUrl(blobKey);
-        const response = await httpClient.send({ url: blobUrl });
+        await this.initialize();
+        const fullBlobKey = this.getCleanKey(blobKey);
+        const blockBlobClient = this.containerClient.getBlockBlobClient(fullBlobKey);
 
-        if (response?.statusCode === 200) {
-            return response.toByteArray();
+        const downloadBlockBlobResponse = await blockBlobClient.download();
+
+        // If browser
+        if (downloadBlockBlobResponse.blobBody) {
+            const blob = await downloadBlockBlobResponse.blobBody;
+            const arrayBuffer = await blob.arrayBuffer();
+            const unit8Array = new Uint8Array(arrayBuffer);
+            return unit8Array;
         }
 
-        return null;
+        //If Node.JS
+        if (downloadBlockBlobResponse.readableStreamBody) {
+            const buffer = await this.streamToBuffer(downloadBlockBlobResponse.readableStreamBody);
+            const unit8Array = new Uint8Array(buffer.buffer);
+            return unit8Array;
+        }
+        
+       throw new Error(`Unable to download blob ${blobKey}.`);
+        
     }
 
     /**
@@ -135,33 +132,31 @@ export class AzureBlobStorage implements IBlobStorage {
      * @param blobKey
      */
     public async getDownloadUrl(blobKey: string): Promise<string> {
-        const containerUrl = await this.initialize();
+        await this.initialize();
+        const blobName = this.getCleanKey(blobKey);
 
         try {
-            if (generateAccountSASQueryParameters && this.credential instanceof SharedKeyCredential) {
+            const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
+
+            if (!(this.containerClient.credential instanceof AnonymousCredential) && BlobSASPermissions) {
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - 5); // Skip clock skew with server
 
-                const tmr = new Date();
-                tmr.setDate(tmr.getDate() + 1);
+                const expireOn = new Date();
+                expireOn.setDate(expireOn.getDate() + 1);  // temp access for 1 day   
 
-                const signatureValues = {
-                    expiryTime: tmr,
-                    permissions: AccountSASPermissions.parse("r").toString(),
-                    protocol: SASProtocol.HTTPSandHTTP,
-                    resourceTypes: AccountSASResourceTypes.parse("sco").toString(),
-                    services: AccountSASServices.parse("btqf").toString(),
-                    startTime: now,
-                    version: "2016-05-31"
+                const sasOptions = {
+                    containerName: this.containerClient.containerName,
+                    startsOn: now,
+                    expiresOn: expireOn,
+                    blobName: blobName,
+                    permissions: BlobSASPermissions.parse("r")
                 };
 
-                const sharedAccessSignature = generateAccountSASQueryParameters(signatureValues, this.credential as SharedKeyCredential).toString();
-                const blobURL = BlobURL.fromContainerURL(containerUrl, blobKey);
-                return `${blobURL.url}?${sharedAccessSignature}`;
-            }
-            else {
-                const blobURL = BlobURL.fromContainerURL(containerUrl, blobKey);
-                return `${blobURL.url}`;
+                const blobSasUrl = await blockBlobClient.generateSasUrl(sasOptions);                
+                return blobSasUrl;
+            } else {
+                return blockBlobClient.url;
             }
         }
         catch (error) {
@@ -177,13 +172,12 @@ export class AzureBlobStorage implements IBlobStorage {
      * @param blobKey
      */
     public async deleteBlob(blobKey: string): Promise<void> {
-        const containerUrl = await this.initialize();
-
+        await this.initialize();
         try {
-            const blobURL = BlobURL.fromContainerURL(containerUrl, blobKey);
-            await blobURL.delete(Aborter.none);
-        }
-        catch (error) {
+            const fullBlobKey = this.getCleanKey(blobKey);
+            const blockBlobClient = this.containerClient.getBlockBlobClient(fullBlobKey);
+            await blockBlobClient.delete();
+        } catch (error) {
             if (error && error.statusCode && error.statusCode === 404) {
                 return; // blob was already deleted
             }
@@ -192,31 +186,176 @@ export class AzureBlobStorage implements IBlobStorage {
     }
 
     /**
-     * Returns array of keys for all the blobs in container.
+     * Get blob from storage in Browser.
+     * @param blobKey
      */
-    public async listBlobs?(): Promise<string[]> {
-        const containerUrl = await this.initialize();
+    public async getBlobAsBlob(blobKey: string): Promise<Blob> {
+        await this.initialize();
+        const fullBlobKey = this.getCleanKey(blobKey);
+        const blockBlobClient = this.containerClient.getBlockBlobClient(fullBlobKey);
 
-        const listBlobsResponse = await containerUrl.listBlobFlatSegment(Aborter.none, undefined);
-        return listBlobsResponse.segment.blobItems.map(x => x.name);
+        const downloadBlockBlobResponse = await blockBlobClient.download();
+        return downloadBlockBlobResponse.blobBody;
+    }
+
+    /**
+     * Uploads specified content into storage in Node.JS
+     * @param blobKey
+     * @param content
+     * @param contentType
+     */
+    public async uploadStreamToBlob(blobKey: string, contentStream: ReadStream, contentType?: string): Promise<void> {
+        await this.initialize();
+
+        blobKey = this.getCleanKey(blobKey);
+
+        if (!contentType) {
+            const fileName = blobKey.split("/").pop();
+            contentType = mime.lookup(fileName) || "application/octet-stream";
+        }
+
+        const blockBlobClient = this.containerClient.getBlockBlobClient(blobKey);
+
+
+        try {
+            await blockBlobClient.uploadStream(
+                contentStream,
+                4 * 1024 * 1024,
+                20,
+                {
+                    blobHTTPHeaders: { blobContentType: contentType }
+                }
+            );
+        }
+        catch (error) {
+            throw new Error(`Unable to upload blob ${blobKey}. ${error.stack || error.message}`);
+        }
+    }
+
+    /**
+     * Get blob from storage in Node.JS
+     * @param blobKey
+     */
+    public async getBlobAsStream(blobKey: string): Promise<NodeJS.ReadableStream> {
+        await this.initialize();
+        const fullBlobKey = this.getCleanKey(blobKey);
+        const blockBlobClient = this.containerClient.getBlockBlobClient(fullBlobKey);
+
+        const downloadBlockBlobResponse = await blockBlobClient.download();
+        return downloadBlockBlobResponse.readableStreamBody;
+    }
+
+    /**
+     * Get blob from storage in Node.JS
+     * @param blobKey
+     */
+    public async getBlobAsUint8Array(blobKey: string): Promise<Uint8Array> {
+        try {
+            const stream = await this.getBlobAsStream(blobKey);
+            const buffer = await this.streamToBuffer(stream);
+            const unit8Array = new Uint8Array(buffer.buffer);
+            return unit8Array;
+        } catch (error) {
+            console.log(`Unable to download blob ${blobKey}. ${error.stack || error.message}`);
+            return null;
+        }
+    }
+
+    private async streamToBuffer(readableStream: NodeJS.ReadableStream): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            const chunks = [];
+            readableStream.on("data", (data) => {
+                chunks.push(data instanceof Buffer ? data : Buffer.from(data));
+            });
+            readableStream.on("end", () => {
+                resolve(Buffer.concat(chunks));
+            });
+            readableStream.on("error", reject);
+        });
+    }
+
+    /**
+     * Removes blobs from storage with specified prefix.
+     * if prefix is empty then all blobs from container will be removed
+     * @param blobPrefix
+     */
+    public async deleteBlobFolder(blobPrefix: string): Promise<void> {
+        await this.initialize();
+        if (!this.blobBatchClient) {
+            throw new Error("deleteBlobFolder works only with client created from the blob storage connection string");
+        }
+        const fullBlobPrefix = this.getCleanKey(blobPrefix);
+        const allBlobs = await this.listAllBlobItems(fullBlobPrefix);
+        try {
+            const clients = allBlobs.map(item => this.containerClient.getBlockBlobClient(item.name));
+            if (clients.length > 0) {
+                if (clients.length < 256) {
+                    await this.processDeleteBatch(clients, blobPrefix);
+                } else {
+                    const chunks = this.chunkArray(clients, 250);
+                    chunks.map(async chunk => await this.processDeleteBatch(chunk, blobPrefix));
+                }
+            }
+        } catch (error) {
+            throw new Error(`Unable to delete blobs in ${blobPrefix}. Error: ${error}`);
+        }
+    }
+
+    private async processDeleteBatch(clients: BlockBlobClient[], blobPrefix: string) {
+        const batchDeleteRequest = new BlobBatch();
+        for (let i = 0; i < clients.length; i++) {
+            await batchDeleteRequest.deleteBlob(clients[i].url, this.containerClient.credential, {});
+        }
+
+        const result = await this.blobBatchClient.submitBatch(batchDeleteRequest, {});
+        if (result.subResponsesFailedCount !== 0) {
+            console.error(`Delete blob folder failed for '${blobPrefix}': ${result.subResponsesFailedCount} items`, result.requestId);
+        }
+    }
+
+    private async listAllBlobItems(prefix?: string): Promise<BlobItem[]> {
+        const allItems = [];
+
+        for await (const blob of this.containerClient.listBlobsFlat({ prefix: prefix })) {
+            allItems.push(blob);
+        }
+
+        return allItems;
     }
 
     public async createContainer(): Promise<void> {
-        const containerUrl = await this.initialize();
-        await containerUrl.create(Aborter.none);
+        await this.initialize();
+        await this.containerClient.createIfNotExists();
     }
 
     public async deleteContainer(): Promise<void> {
-        const containerUrl = await this.initialize();
+        await this.initialize();
+        await this.containerClient.deleteIfExists();
+    }
 
-        try {
-            await containerUrl.delete(Aborter.none);
+    private getCleanKey(blobKey: string): string {
+        blobKey = blobKey.replace(/\\/g, "\/").replace("//", "/");
+
+        if (blobKey.startsWith("/")) {
+            blobKey = blobKey.substring(1);
         }
-        catch (error) {
-            if (error && error.statusCode && error.statusCode === 404) {
-                return; // container was already deleted
-            }
-            throw error;
+
+        return blobKey;
+    }
+
+    /**
+    * Returns an array with arrays of the given size.
+    *
+    * @param srcArray {Array} Array to split
+    * @param chunkSize {Integer} Size of every group
+    */
+    public chunkArray(srcArray: any[], chunkSize: number): [][] {
+        const results = [];
+
+        while (srcArray.length) {
+            results.push(srcArray.splice(0, chunkSize));
         }
+
+        return results;
     }
 }
