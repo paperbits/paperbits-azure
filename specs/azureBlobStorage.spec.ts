@@ -95,7 +95,6 @@ describe("Azure Blob Storage", async () => {
             await container.deleteBlobFolder("202009171944");
             const empty = await container.listBlobs("202009171944");
             expect(empty.length === 0);
-
         });
     });
 });
