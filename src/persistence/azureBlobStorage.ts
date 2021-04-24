@@ -90,8 +90,8 @@ export class AzureBlobStorage implements IBlobStorage {
     /**
      * Uploads specified content into storage.
      * @param blobKey {string} Blob key.
-     * @param content
-     * @param contentType
+     * @param content {Uint8Array} Blob content.
+     * @param contentType {sting} Blob content type.
      */
     public async uploadBlob(blobKey: string, content: Uint8Array, contentType?: string): Promise<void> {
         await this.initialize();
@@ -353,11 +353,17 @@ export class AzureBlobStorage implements IBlobStorage {
         return allItems;
     }
 
+    /**
+     * Creates blob container in Azure Storage service.
+     */
     public async createContainer(): Promise<void> {
         await this.initialize();
         await this.containerClient.createIfNotExists();
     }
 
+    /**
+     * Deletes blob container from Azure Storage service.
+     */
     public async deleteContainer(): Promise<void> {
         await this.initialize();
         await this.containerClient.deleteIfExists();
