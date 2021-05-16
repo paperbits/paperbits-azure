@@ -11,7 +11,7 @@ describe("Azure Blob Storage - blobStorageUrl", async () => {
     const settingsProvider = new StaticSettingsProvider({
         blobStorageUrl: "blob storage url with limited access",
         blobStorageContainer: "content",
-        blobStorageConnectionString: "DefaultEndpointsProtocol=https;AccountName={storage account name};AccountKey=iKlw3vTw/SuYLa4ErHD6q3GdcCg6L/qXL/RCMp8u5hhRKzlyeiokrmMpf705iQLOlYIIkF9wC4PaDTf0oLbm+A==;EndpointSuffix=core.windows.net",
+        blobStorageConnectionString: "DefaultEndpointsProtocol=https;AccountName={storage account name};AccountKey={storage account key};EndpointSuffix=core.windows.net",
     });
 
     const container = new AzureBlobStorage(settingsProvider, logger);
