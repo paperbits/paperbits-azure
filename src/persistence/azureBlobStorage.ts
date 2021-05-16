@@ -35,7 +35,7 @@ export class AzureBlobStorage implements IBlobStorage {
 
     private async initContainer(): Promise<void> {
         const blobStorageBasePath = await this.settingsProvider.getSetting<string>("blobStorageBasePath") || "";
-        this.basePath = this.normalizePath(blobStorageBasePath);
+        this.basePath = blobStorageBasePath;
 
         const blobStorageConnectionString = await this.settingsProvider.getSetting<string>("blobStorageConnectionString");
 
@@ -104,6 +104,7 @@ export class AzureBlobStorage implements IBlobStorage {
         }
 
         const blockBlobClient = this.containerClient.getBlockBlobClient(blobKey);
+
         try {
             await blockBlobClient.upload(
                 content,
@@ -139,7 +140,7 @@ export class AzureBlobStorage implements IBlobStorage {
         // if Node JS
         if (downloadBlockBlobResponse.readableStreamBody) {
             const buffer = await this.streamToBuffer(downloadBlockBlobResponse.readableStreamBody);
-            const unit8Array = new Uint8Array(buffer.buffer);
+            const unit8Array = new Uint8Array(buffer);
             return unit8Array;
         }
 
@@ -384,7 +385,7 @@ export class AzureBlobStorage implements IBlobStorage {
     }
 
     private getFullKey(blobKey: string): string {
-        return `${this.basePath}/${this.normalizePath(blobKey)}`;
+        return this.normalizePath(`${this.basePath}/${this.normalizePath(blobKey)}`);
     }
 
     /**

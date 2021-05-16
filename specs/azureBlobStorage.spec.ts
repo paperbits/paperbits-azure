@@ -1,9 +1,9 @@
-import { ConsoleLogger } from "@paperbits/common/logging";
+import * as Utils from "@paperbits/common";
 import { expect } from "chai";
 import { describe, it } from "mocha";
+import { ConsoleLogger } from "@paperbits/common/logging";
 import { AzureBlobStorage } from "../src/persistence/azureBlobStorage";
 import { StaticSettingsProvider } from "./staticSettingsProvider";
-
 
 describe("Azure Blob Storage - blobStorageUrl", async () => {
     const logger = new ConsoleLogger();
@@ -34,11 +34,19 @@ describe("Azure Blob Storage - blobStorageUrl", async () => {
         const items = await container.listBlobs();
         expect(items.length).greaterThan(1);
 
-        const url = await container.getDownloadUrl(items[0]);
+        const blobKey = items[0];
+
+        const url = await container.getDownloadUrl(blobKey);
         expect(url !== undefined);
 
-        const content = await container.downloadBlob(items[0]);
+        const content = await container.downloadBlob(blobKey);
         expect(content !== undefined);
+    });
+
+    it("Upload blob", async () => {
+        const contentType = "text/plain";
+        const content = Utils.stringToUnit8Array("Hello world");
+        await container.uploadBlob("test/test.txt", content, contentType);
     });
 
     it("Returns list of blobs with prefix", async () => {
@@ -69,16 +77,6 @@ describe("Azure Blob Storage - blobStorageUrl", async () => {
         expect(contentBlob === undefined);
     });
 
-    it("Download blob", async () => {
-        const items = await container.listBlobs();
-        expect(items.length).greaterThan(1);
-
-        const url = await container.getDownloadUrl(items[0]);
-        expect(url !== undefined);
-
-        const contentArray = await container.downloadBlob(items[0]);
-        expect(contentArray !== undefined);
-    });
 
     it("Returns list of blobs with prefix", async () => {
         const items = await container.listBlobs("202009171944");
