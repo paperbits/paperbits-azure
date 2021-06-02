@@ -1,6 +1,5 @@
 import * as Utils from "@paperbits/common";
 import { expect } from "chai";
-import { describe, it } from "mocha";
 import { ConsoleLogger } from "@paperbits/common/logging";
 import { AzureBlobStorage } from "../src/persistence/azureBlobStorage";
 import { StaticSettingsProvider } from "./staticSettingsProvider";

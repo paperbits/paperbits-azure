@@ -1,5 +1,4 @@
 import { ConsoleLogger } from "@paperbits/common/logging";
-import { describe, it } from "mocha";
 import { AzureBlobStorage } from "../src/persistence/azureBlobStorage";
 import { StaticSettingsProvider } from "./staticSettingsProvider";
 
