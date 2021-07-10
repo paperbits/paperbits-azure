@@ -1,4 +1,4 @@
-import * as mime from "mime-types";
+import * as mime from "mime";
 import { ReadStream } from "fs";
 import { ISettingsProvider } from "@paperbits/common/configuration";
 import { IBlobStorage } from "@paperbits/common/persistence";
@@ -100,7 +100,7 @@ export class AzureBlobStorage implements IBlobStorage {
 
         if (!contentType) {
             const fileName = blobKey.split("/").pop();
-            contentType = mime.lookup(fileName) || "application/octet-stream";
+            contentType = mime.getType(fileName) || "application/octet-stream";
         }
 
         const blockBlobClient = this.containerClient.getBlockBlobClient(blobKey);
@@ -234,7 +234,7 @@ export class AzureBlobStorage implements IBlobStorage {
 
         if (!contentType) {
             const fileName = blobKey.split("/").pop();
-            contentType = mime.lookup(fileName) || "application/octet-stream";
+            contentType = mime.getType(fileName) || "application/octet-stream";
         }
 
         const blockBlobClient = this.containerClient.getBlockBlobClient(blobKey);
