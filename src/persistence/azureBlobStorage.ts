@@ -13,6 +13,7 @@ import {
     BlockBlobClient,
     ContainerClient
 } from "@azure/storage-blob";
+import { defaultEndpointSuffix, endpointSuffixParameterName } from "../constants";
 
 /**
  * Azure blob storage client.
@@ -37,13 +38,17 @@ export class AzureBlobStorage implements IBlobStorage {
         const blobStorageBasePath = await this.settingsProvider.getSetting<string>("blobStorageBasePath") || "";
         this.basePath = blobStorageBasePath;
 
-        const blobStorageConnectionString = await this.settingsProvider.getSetting<string>("blobStorageConnectionString");
+        let blobStorageConnectionString = await this.settingsProvider.getSetting<string>("blobStorageConnectionString");
 
         if (blobStorageConnectionString) {
             const containerName = await this.settingsProvider.getSetting<string>("blobStorageContainer");
 
             if (!containerName) {
                 throw new Error(`Setting "blobStorageContainer" required to initialize AzureBlobStorage.`);
+            }
+
+            if (!blobStorageConnectionString.toLowerCase().includes(endpointSuffixParameterName.toLowerCase())) {
+                blobStorageConnectionString += `;${endpointSuffixParameterName}=${defaultEndpointSuffix}`;
             }
 
             const serviceClient = BlobServiceClient.fromConnectionString(blobStorageConnectionString);
