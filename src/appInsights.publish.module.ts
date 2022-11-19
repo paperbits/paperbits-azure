@@ -14,6 +14,6 @@ import { AppInsightsHtmlPagePublisherPlugin } from "./publishing";
 
 export class AppInsightsPublishModule implements IInjectorModule {
     public register(injector: IInjector): void {
-        injector.bindToCollection("htmlPagePublisherPlugins", AppInsightsHtmlPagePublisherPlugin);
+        injector.bindToCollectionAsSingletone("htmlPagePublisherPlugins", AppInsightsHtmlPagePublisherPlugin);
     }
 }
