@@ -9,7 +9,6 @@
         "moduleResolution": "node",
         "declaration": true,
         "noImplicitAny": false,
-        "noStrictGenericChecks": true,
         "removeComments": true,
         "noLib": false,
         "skipLibCheck": true,
