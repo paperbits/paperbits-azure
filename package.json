@@ -16,17 +16,18 @@
         "url": "https://github.com/paperbits/paperbits-azure/issues"
     },
     "dependencies": {
-        "@azure/storage-blob": "12.14.0",
+        "@azure/storage-blob": "12.27.0",
         "@paperbits/common": "0.1.645",
         "applicationinsights-js": "1.0.21",
-        "mime": "3.0.0"
+        "mime": "^3.0.0"
     },
     "devDependencies": {
         "@types/applicationinsights-js": "^1.0.9",
         "@types/chai": "^4.2.16",
-        "@types/mocha": "^10.0.1",
+        "@types/mime": "^4.0.0",
+        "@types/mocha": "^8.2.2",
         "chai": "^4.3.4",
-        "mocha": "^10.2.0",
+        "mocha": "^8.3.2",
         "ts-node": "^9.1.1",
         "typescript": "4.2.4"
     }
