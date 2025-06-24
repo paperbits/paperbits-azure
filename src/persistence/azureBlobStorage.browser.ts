@@ -21,6 +21,11 @@ export class BrowserAzureBlobStorage extends AzureBlobStorage {
         this.initializePromise = null;
         this.containerClient = null;
         this.basePath = "";
+        
+        if (this.settingsProvider.onSettingChange) {
+            this.settingsProvider.onSettingChange<string>("blobStorageUrl", this.initContainer.bind(this));
+            this.settingsProvider.onSettingChange<string>("blobStorageBasePath", this.initContainer.bind(this));
+        }
     }
 
     protected override async initContainer(): Promise<void> {
