@@ -233,7 +233,7 @@ export abstract class AzureBlobStorage implements IBlobStorage {
     }
 
     protected getFullKey(blobKey: string): string {
-        return `${this.basePath}/${this.normalizePath(blobKey)}`;
+        return this.basePath ? `${this.basePath}/${this.normalizePath(blobKey)}` : ${this.normalizePath(blobKey);
     }
 
     /**
