@@ -277,7 +277,9 @@ export class ServerAzureBlobStorage extends AzureBlobStorage {
     }
 
     protected normalizePath(value: string): string {
-        value = value.replace(/\\/g, "\/");
+        value = value
+            .replace(/\\/g, "\/")
+            .replace(/\/{2,}/gm, "\/");
 
         if (value.startsWith("/")) {
             value = value.substring(1);
@@ -287,11 +289,15 @@ export class ServerAzureBlobStorage extends AzureBlobStorage {
             value = value.slice(0, -1);
         }
 
-        return value.replace(/\/{2,}/gm, "\/");
+        return value;
     }
 
     protected getFullKey(blobKey: string): string {
-        return `${this.basePath}/${this.normalizePath(blobKey)}`;
+        return this.normalizePath(`${this.basePath}/${this.normalizePath(blobKey)}`);
+    }
+
+    private removeQueryParameters(url: string): string {
+        return url.split('?')[0];
     }
 
     /**
@@ -302,15 +308,24 @@ export class ServerAzureBlobStorage extends AzureBlobStorage {
         await this.initialize();
         const fullBlobKey = this.getFullKey(blobKey);
         const blockBlobClient = this.containerClient.getBlobClient(fullBlobKey);
-        const downloadBlockBlobResponse = await blockBlobClient.download();
+        const blobUrl = this.removeQueryParameters(blockBlobClient.url);
 
-        // if Node JS
-        if (downloadBlockBlobResponse.readableStreamBody) {
-            const buffer = await this.streamToBuffer(downloadBlockBlobResponse.readableStreamBody);
-            const unit8Array = new Uint8Array(buffer.buffer);
-            return unit8Array;
+        try {
+            const downloadBlockBlobResponse = await blockBlobClient.download();
+
+            if (downloadBlockBlobResponse.readableStreamBody) {
+                const buffer = await this.streamToBuffer(downloadBlockBlobResponse.readableStreamBody);
+                const unit8Array = new Uint8Array(buffer.buffer);
+                return unit8Array;
+            }
+
+            const statusCode = downloadBlockBlobResponse._response.status;
+
+            this.logger.trackEvent("AzureBlobStorage", { message: `Unable to download blob ${blobUrl}. Status code: ${statusCode}` });
         }
-
-        throw new Error(`Unable to download blob ${blobKey}.`);
+        catch (error) {
+            this.logger.trackEvent("AzureBlobStorage", { message: `Unable to download blob ${blobUrl}: ${error.stack || error.message}` });
+            throw error;
+        }
     }
 }
