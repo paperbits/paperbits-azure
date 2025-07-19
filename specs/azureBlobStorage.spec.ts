@@ -11,45 +11,51 @@ describe("Azure Blob Storage", async () => {
         const settingsProvider = new StaticSettingsProvider({
             "blobStorageUrl": "blob storage url with limited access"
         });
-        const container = new ServerAzureBlobStorage(settingsProvider, logger);
+
+        const storageClient = new ServerAzureBlobStorage(settingsProvider, logger);
 
         it("Returns list of blobs", async () => {
-            const items = await container.listBlobs();
+            const items = await storageClient.listBlobs();
             expect(items.length).greaterThan(1);
 
-            const url = await container.getDownloadUrl(items[0]);
+            const url = await storageClient.getDownloadUrl(items[0]);
             expect(url !== undefined);
 
-            const contentBlob = await container.getBlobAsBlob(items[0]);
+            const contentBlob = await storageClient.getBlobAsBlob(items[0]);
             expect(contentBlob === undefined);
         });
 
         it("Download blob", async () => {
-            const items = await container.listBlobs();
+            const items = await storageClient.listBlobs();
             expect(items.length).greaterThan(1);
 
-            const url = await container.getDownloadUrl(items[0]);
+            const url = await storageClient.getDownloadUrl(items[0]);
             expect(url !== undefined);
 
-            const contentArray = await container.downloadBlob(items[0]);
+            const contentArray = await storageClient.downloadBlob(items[0]);
             expect(contentArray !== undefined);
         });
 
         it("Returns list of blobs with prefix", async () => {
-            const items = await container.listBlobs("202009162037");
+            const items = await storageClient.listBlobs("202009162037");
             expect(items.length).greaterThan(1);
         });
 
         it("Returns list of blobs with prefix", async () => {
-            const items = await container.listBlobs("202009162037");
+            const items = await storageClient.listBlobs("202009162037");
             expect(items.length).greaterThan(1);
-            await container.deleteBlob(items[0]);
-            
-            const itemsAfterDelete = await container.listBlobs("202009162037");
+            await storageClient.deleteBlob(items[0]);
+
+            const itemsAfterDelete = await storageClient.listBlobs("202009162037");
             expect(itemsAfterDelete.length).lessThan(items.length);
         });
 
+        it("Makes proper blob key", () => {
+            const method = storageClient["getFullKey"];
 
+            expect(method("/segment1/segment2")).equals("/segment1/segment2")
+
+        })
     });
 
     describe("Azure Blob Storage - connectionString", async () => {
@@ -87,7 +93,7 @@ describe("Azure Blob Storage", async () => {
             const items = await container.listBlobs("202009171944");
             expect(items.length).greaterThan(1);
             await container.deleteBlob(items[0]);
-            
+
             const itemsAfterDelete = await container.listBlobs("202009171944");
             expect(itemsAfterDelete.length).lessThan(items.length);
 

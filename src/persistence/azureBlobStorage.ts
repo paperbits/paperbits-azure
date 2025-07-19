@@ -151,7 +151,6 @@ export abstract class AzureBlobStorage implements IBlobStorage {
         }
     }
 
-
     /**
      * Removes blobs from storage with specified prefix.
      * if prefix is empty then all blobs from container will be removed
@@ -219,7 +218,9 @@ export abstract class AzureBlobStorage implements IBlobStorage {
     }
 
     protected normalizePath(value: string): string {
-        value = value.replace(/\\/g, "\/");
+        value = value
+            .replace(/\\/g, "\/")
+            .replace(/\/{2,}/gm, "\/");
 
         if (value.startsWith("/")) {
             value = value.substring(1);
@@ -229,11 +230,15 @@ export abstract class AzureBlobStorage implements IBlobStorage {
             value = value.slice(0, -1);
         }
 
-        return value.replace(/\/{2,}/gm, "\/");
+        return value;
     }
 
     protected getFullKey(blobKey: string): string {
-        return this.basePath ? `${this.basePath}/${this.normalizePath(blobKey)}` : this.normalizePath(blobKey);
+        const fullUrl = !!this.basePath
+            ? `${this.basePath}/${blobKey}`
+            : blobKey;
+
+        return this.normalizePath(fullUrl);
     }
 
     /**

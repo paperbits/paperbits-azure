@@ -266,34 +266,14 @@ export class ServerAzureBlobStorage extends AzureBlobStorage {
         return allItems;
     }
 
-    protected async createContainer(): Promise<void> {
+    public async createContainer(): Promise<void> {
         await this.initialize();
         await this.containerClient.createIfNotExists();
     }
 
-    protected async deleteContainer(): Promise<void> {
+    public async deleteContainer(): Promise<void> {
         await this.initialize();
         await this.containerClient.deleteIfExists();
-    }
-
-    protected normalizePath(value: string): string {
-        value = value
-            .replace(/\\/g, "\/")
-            .replace(/\/{2,}/gm, "\/");
-
-        if (value.startsWith("/")) {
-            value = value.substring(1);
-        }
-
-        if (value.endsWith("/")) {
-            value = value.slice(0, -1);
-        }
-
-        return value;
-    }
-
-    protected getFullKey(blobKey: string): string {
-        return this.normalizePath(`${this.basePath}/${this.normalizePath(blobKey)}`);
     }
 
     private removeQueryParameters(url: string): string {
